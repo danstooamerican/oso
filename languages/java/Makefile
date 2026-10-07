@@ -8,8 +8,8 @@ rust:
 		cp ../../target/debug/libpolar.dylib oso/src/main/resources/macos/; \
 	fi
 	if [ -e "../../target/debug/libpolar.so" ]; then \
-		mkdir -p oso/src/main/resources/linux; \
-		cp ../../target/debug/libpolar.so oso/src/main/resources/linux/; \
+		mkdir -p oso/src/main/resources/linux/$$(uname -m); \
+		cp ../../target/debug/libpolar.so oso/src/main/resources/linux/$$(uname -m)/; \
 	fi
 
 test: rust
