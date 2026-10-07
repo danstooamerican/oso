@@ -267,38 +267,51 @@ public class Ffi {
   }
 
   protected Ffi() {
-    String platform = System.getProperty("os.name").toLowerCase();
-    String path = null;
-    String prefix = null;
-    String suffix = null;
-
-    if (platform.contains("win")) {
-      path = "win/polar.dll";
-      prefix = "polar";
-      suffix = ".dll";
-    } else if (platform.contains("mac")) {
-      path = "macos/libpolar.dylib";
-      prefix = "libpolar";
-      suffix = ".dylib";
-    } else {
-      path = "linux/libpolar.so";
-      prefix = "libpolar";
-      suffix = ".so";
+    String path = nativeLibraryPath(System.getProperty("os.name"), System.getProperty("os.arch"));
+    String fileName = path.substring(path.lastIndexOf('/') + 1);
+    String prefix = fileName.substring(0, fileName.indexOf('.'));
+    String suffix = fileName.substring(fileName.indexOf('.'));
+    InputStream input = getClass().getClassLoader().getResourceAsStream(path);
+    if (input == null) {
+      throw new UnsatisfiedLinkError("oso: the jar has no native library " + path);
     }
     try {
-      InputStream input = getClass().getClassLoader().getResourceAsStream(path);
       File file = File.createTempFile(prefix, suffix);
-      OutputStream out = new FileOutputStream(file);
-      int read;
-      byte[] bytes = new byte[1024];
-      while ((read = input.read(bytes)) != -1) {
-        out.write(bytes, 0, read);
-      }
-      out.close();
       file.deleteOnExit();
+      try (InputStream in = input;
+          OutputStream out = new FileOutputStream(file)) {
+        int read;
+        byte[] bytes = new byte[1024];
+        while ((read = in.read(bytes)) != -1) {
+          out.write(bytes, 0, read);
+        }
+      }
       polarLib = LibraryLoader.create(PolarLib.class).load(file.getAbsolutePath());
     } catch (IOException e) {
+      UnsatisfiedLinkError error =
+          new UnsatisfiedLinkError("oso: cannot extract the native library " + path);
+      error.initCause(e);
+      throw error;
+    }
+  }
 
+  static String nativeLibraryPath(String osName, String osArch) {
+    String platform = osName.toLowerCase();
+    if (platform.contains("win")) {
+      return "win/polar.dll";
+    } else if (platform.contains("mac")) {
+      return "macos/libpolar.dylib";
+    }
+    switch (osArch.toLowerCase()) {
+      case "amd64":
+      case "x86_64":
+        return "linux/x86_64/libpolar.so";
+      case "aarch64":
+      case "arm64":
+        return "linux/aarch64/libpolar.so";
+      default:
+        throw new UnsatisfiedLinkError(
+            "oso: no native library for " + osName + " on " + osArch);
     }
   }
 
